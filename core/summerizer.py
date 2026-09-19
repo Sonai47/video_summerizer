@@ -1,19 +1,14 @@
-from langchain_mistralai import ChatMistralAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 import httpx
+from core.llm_provider import get_llm as get_provider_llm
 
 import os 
 
 def get_llm():
-    return ChatMistralAI(
-        model="mistral-small-latest",
-        mistral_api_key=os.getenv("MISTRAL_API_KEY"),
-        temperature=0.3,
-        max_retries=0,
-    )
+    return get_provider_llm()
 
 
 def _safe_llm_call(chain, payload, fallback_text: str):

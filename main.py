@@ -1,8 +1,7 @@
 from dotenv import load_dotenv
-from utils.audio_processor import process_input
+from utils.audio_processer import process_input
 from core.transcriber import transcribe_all
-from core.summarizer import summarize, generate_title
-from core.extractor import extract_action_items, extract_key_decisions, extract_questions
+from core.summerizer import analyze_transcript
 from core.rag_engine import build_rag_chain, ask_question
 
 
@@ -16,24 +15,17 @@ def run_pipeline(source :str, language :str = "english") -> dict:
     transcript = transcribe_all(chunks,language)
     print(f"raw transcription (first 300 characters ) {transcript[:300]}")
 
-    title = generate_title(transcript)
-
-    summary = summarize(transcript)
-
-    action_item = extract_action_items(transcript)
-
-    decisions = extract_key_decisions(transcript)
-    questions = extract_questions(transcript)
+    analysis = analyze_transcript(transcript)
     
     rag_chain = build_rag_chain(transcript)
 
     return {
-        "title": title,
+        "title": analysis["title"],
         "transcript": transcript,
-        "summary": summary,
-        "action_items": action_item,
-        "key_decisions": decisions,
-        "open_questions": questions,
+        "summary": "\n".join(f"- {item}" for item in analysis["summary"]),
+        "action_items": "\n".join(f"- {item}" for item in analysis["action_items"]) or "None found.",
+        "key_decisions": "\n".join(f"- {item}" for item in analysis["key_decisions"]) or "None found.",
+        "open_questions": "\n".join(f"- {item}" for item in analysis["open_questions"]) or "None found.",
         "rag_chain": rag_chain,
     }
 

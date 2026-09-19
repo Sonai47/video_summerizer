@@ -1,10 +1,9 @@
 import streamlit as st
 import time
 from dotenv import load_dotenv
-from utils.audio_processor import process_input
+from utils.audio_processer import process_input
 from core.transcriber import transcribe_all
-from core.summarizer import summarize, generate_title
-from core.extractor import extract_action_items, extract_key_decisions, extract_questions
+from core.summerizer import analyze_transcript
 from core.rag_engine import build_rag_chain, ask_question
 
 load_dotenv()
@@ -388,17 +387,9 @@ if run_btn:
             update_step("transcript", "done")
 
             update_step("title", "active")
-            title = generate_title(transcript)
+            analysis = analyze_transcript(transcript)
             update_step("title", "done")
-
-            update_step("summary", "active")
-            summary = summarize(transcript)
             update_step("summary", "done")
-
-            update_step("extract", "active")
-            action_items  = extract_action_items(transcript)
-            decisions     = extract_key_decisions(transcript)
-            questions     = extract_questions(transcript)
             update_step("extract", "done")
 
             update_step("rag", "active")
@@ -406,12 +397,12 @@ if run_btn:
             update_step("rag", "done")
 
             st.session_state.result = {
-                "title": title,
+                "title": analysis["title"],
                 "transcript": transcript,
-                "summary": summary,
-                "action_items": action_items,
-                "key_decisions": decisions,
-                "open_questions": questions,
+                "summary": "\n".join(f"- {item}" for item in analysis["summary"]),
+                "action_items": "\n".join(f"- {item}" for item in analysis["action_items"]) or "None found.",
+                "key_decisions": "\n".join(f"- {item}" for item in analysis["key_decisions"]) or "None found.",
+                "open_questions": "\n".join(f"- {item}" for item in analysis["open_questions"]) or "None found.",
                 "rag_chain": rag_chain,
             }
             st.session_state.pipeline_done = True
