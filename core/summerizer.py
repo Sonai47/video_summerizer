@@ -1,6 +1,6 @@
 from langchain_mistralai import ChatMistralAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
+from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 import httpx
@@ -8,7 +8,12 @@ import httpx
 import os 
 
 def get_llm():
-    return ChatMistralAI(model = "mistral-small-latest", mistral_api_key = os.getenv("MISTRAL_API_KEY"),temperature=0.3)
+    return ChatMistralAI(
+        model="mistral-small-latest",
+        mistral_api_key=os.getenv("MISTRAL_API_KEY"),
+        temperature=0.3,
+        max_retries=0,
+    )
 
 
 def _safe_llm_call(chain, payload, fallback_text: str):
@@ -18,6 +23,42 @@ def _safe_llm_call(chain, payload, fallback_text: str):
         if exc.response is not None and exc.response.status_code == 429:
             return fallback_text
         raise
+
+
+def analyze_transcript(transcript: str) -> dict:
+    """Generate all meeting outputs with one Mistral request."""
+    llm = get_llm()
+    output_parser = JsonOutputParser()
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                "Analyze the meeting transcript and return only valid JSON with these keys: "
+                "title (string, max 8 words), summary (array of concise bullet strings), "
+                "action_items (array of strings), key_decisions (array of strings), "
+                "open_questions (array of strings). Use empty arrays when none are found.\n"
+                "{format_instructions}",
+            ),
+            ("human", "{text}"),
+        ]
+    )
+    chain = prompt | llm | output_parser
+    fallback = {
+        "title": "Analysis unavailable",
+        "summary": ["Mistral API rate limit exceeded. Please retry later."],
+        "action_items": [],
+        "key_decisions": [],
+        "open_questions": [],
+    }
+
+    return _safe_llm_call(
+        chain,
+        {
+            "text": transcript[:50000],
+            "format_instructions": output_parser.get_format_instructions(),
+        },
+        fallback,
+    )
 
 
 def split_transcript(transcript: str) -> list:
